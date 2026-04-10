@@ -1,7 +1,5 @@
 # Automata Simulator
 
-![Automata Simulator Header](media/header.png)
-
 A comprehensive, web-based tool for simulating and visualizing various types of Automata. This simulator supports **Deterministic Finite Automata (DFA)**, **Non-deterministic Finite Automata (NFA)**, and **Pushdown Automata (PDA)**.
 
 ## 🚀 Features
