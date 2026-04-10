@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Automata Simulator (DFA, NFA & PDA)</title>
+
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+<style>
+body{
+font-family:Arial;
+background:#f5f5f5;
+padding:20px;
+}
+
+.container{
+background:white;
+max-width:800px;
+margin:auto;
+padding:20px;
+border-radius:8px;
+box-shadow:0 0 10px rgba(0,0,0,0.2);
+}
+
+h2{text-align:center;}
+
+label{
+font-weight:bold;
+display:block;
+margin-top:10px;
+}
+
+input,textarea,select{
+width:100%;
+padding:8px;
+margin-top:5px;
+}
+
+button{
+margin-top:10px;
+padding:10px;
+background:#007bff;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
+}
+
+.output{
+margin-top:20px;
+background:#eef;
+padding:10px;
+border-radius:5px;
+font-family:monospace;
+}
+
+#diagram{
+height:400px;
+border:1px solid #ccc;
+margin-top:20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Automata Simulator (DFA, NFA & PDA)</h2>
+
+<label>Select Machine</label>
+<select id="machine">
+<option value="dfa">DFA</option>
+<option value="nfa">NFA</option>
+<option value="pda">PDA</option>
+</select>
+
+<label>States</label>
+<input id="states">
+
+<label>Start State</label>
+<input id="startState">
+
+<label>Final States</label>
+<input id="finalStates">
+
+<label>Transitions</label>
+<textarea id="transitions" rows="6"></textarea>
+
+<label>Input String</label>
+<input id="inputString">
+
+<button onclick="runMachine()">Run Simulation</button>
+<button onclick="resetForm()">Reset</button>
+
+<div class="output" id="output"></div>
+
+<h3>Transition Diagram</h3>
+<div id="diagram"></div>
+
+</div>
+
+<script>
+
+function runMachine(){
+
+let type=document.getElementById("machine").value
+let states=document.getElementById("states").value.trim()
+let start=document.getElementById("startState").value.trim()
+let finals=document.getElementById("finalStates").value.trim()
+let input=document.getElementById("inputString").value.trim()
+let transitionsText=document.getElementById("transitions").value.trim()
+
+let output=document.getElementById("output")
+
+if(states==="" || start==="" || finals==="" || input==="" || transitionsText===""){
+output.innerHTML="Please fill all fields."
+return
+}
+
+let statesList=states.split(",")
+let finalsList=finals.split(",")
+
+let transitions
+
+try{
+transitions=JSON.parse(transitionsText)
+}
+catch{
+output.innerHTML="Invalid format"
+return
+}
+
+drawDiagram(statesList,transitions,start,finalsList)
+
+if(type==="dfa"){
+runDFA(start,finalsList,input,transitions)
+}
+else if(type==="nfa"){
+runNFA(start,finalsList,input,transitions)
+}
+else{
+runPDA(start,finalsList,input,transitions)
+}
+
+}
+
+// DFA
+function runDFA(start,finals,input,transitions){
+
+let current=start
+let trace="Start State: "+current+"<br><br>"
+
+for(let symbol of input){
+
+if(!transitions[current] || !transitions[current][symbol]){
+document.getElementById("output").innerHTML="Invalid transition"
+return
+}
+
+let next=transitions[current][symbol]
+trace+=current+" --"+symbol+"--> "+next+"<br>"
+current=next
+}
+
+trace+="<br>Final State: "+current+"<br>"
+trace+=finals.includes(current) ? "<b style='color:green'>ACCEPTED</b>" : "<b style='color:red'>REJECTED</b>"
+
+document.getElementById("output").innerHTML=trace
+}
+
+// NFA
+function runNFA(start,finals,input,transitions){
+
+let currentStates=[start]
+
+for(let symbol of input){
+
+let nextStates=[]
+
+for(let state of currentStates){
+
+if(transitions[state] && transitions[state][symbol]){
+let targets=transitions[state][symbol].split(",")
+for(let t of targets) nextStates.push(t)
+}
+
+}
+
+currentStates=[...new Set(nextStates)]
+
+}
+
+let accepted=currentStates.some(s=>finals.includes(s))
+
+document.getElementById("output").innerHTML=
+accepted ? "<b style='color:green'>ACCEPTED</b>" : "<b style='color:red'>REJECTED</b>"
+}
+
+// PDA
+function runPDA(start, finals, input, transitions){
+
+let current=start
+let stack=["Z"]
+let trace="Start State: "+current+"<br>Stack: Z<br><br>"
+
+for(let symbol of input){
+
+if(!transitions[current] || !transitions[current][symbol]){
+document.getElementById("output").innerHTML="Invalid PDA transition"
+return
+}
+
+let [nextState,action]=transitions[current][symbol].split(",")
+
+trace+=current+" --"+symbol+"--> "+nextState+"<br>"
+current=nextState
+
+if(action==="pop") stack.pop()
+else if(action!=="nop") stack.push(action)
+
+}
+
+trace+="<br>Final State: "+current+"<br>"
+trace+="Stack: "+stack.join(",")+"<br>"
+
+trace+=finals.includes(current) ? "<b style='color:green'>ACCEPTED</b>" : "<b style='color:red'>REJECTED</b>"
+
+document.getElementById("output").innerHTML=trace
+}
+
+// FIXED DIAGRAM (MERGED LABELS)
+function drawDiagram(states,transitions,start,finals){
+
+let nodes=[]
+let edgesMap={}
+
+// Nodes
+for(let s of states){
+nodes.push({
+id:s,
+label:s,
+borderWidth: finals.includes(s) ? 5 : 1,
+color: finals.includes(s) ? {border:"green"} : {}
+})
+}
+
+// Start arrow node
+nodes.push({
+id:"startNode",
+label:"",
+size:5,
+color:{background:"white",border:"white"}
+})
+
+// Start arrow
+edgesMap["startNode-"+start]={
+from:"startNode",
+to:start,
+label:"",
+arrows:{to:true},
+color:{color:"blue"}
+}
+
+// Merge edges
+for(let state in transitions){
+for(let symbol in transitions[state]){
+
+let target=transitions[state][symbol]
+let targets = target.includes(",") ? target.split(",") : [target]
+
+for(let t of targets){
+
+let key = state + "-" + t
+
+if(edgesMap[key]){
+edgesMap[key].label += "," + symbol
+}else{
+edgesMap[key]={
+from:state,
+to:t,
+label:symbol,
+arrows:{to:true},
+color:{color:"blue"}
+}
+}
+
+}
+
+}
+}
+
+let edges = Object.values(edgesMap)
+
+let container=document.getElementById("diagram")
+
+let data={
+nodes:new vis.DataSet(nodes),
+edges:new vis.DataSet(edges)
+}
+
+new vis.Network(container,data,{
+edges:{
+arrows:{to:{enabled:true}},
+color:{color:"blue"}
+}
+})
+}
+
+// Reset
+function resetForm(){
+location.reload()
+}
+
+window.onload = function(){
+
+let type = document.getElementById("machine").value
+setPlaceholder(type)
+
+document.getElementById("machine").addEventListener("change", function(){
+setPlaceholder(this.value)
+})
+
+}
+
+function setPlaceholder(type){
+
+let textarea = document.getElementById("transitions")
+
+if(type === "dfa"){
+textarea.placeholder =
+`{
+"q0":{"0":"q0","1":"q1"},
+"q1":{"0":"q2","1":"q1"},
+"q2":{"0":"q0","1":"q1"}
+}`
+}
+
+else if(type === "nfa"){
+textarea.placeholder =
+`{
+"q0":{"0":"q0","1":"q0,q1"},
+"q1":{"0":"q2"},
+"q2":{}
+}`
+}
+
+else{
+textarea.placeholder =
+`{
+"q0":{"a":"q0,A","b":"q1,pop"},
+"q1":{"b":"q1,pop"}
+}`
+}
+
+}
+
+</script>
+
+</body>
+</html>
